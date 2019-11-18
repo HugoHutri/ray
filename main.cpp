@@ -4,6 +4,7 @@
 #include <vector>
 #include <cstdlib>
 #include <chrono>
+#include <omp.h>
 #include "AE2D.h"
 
 class Vec3 {
@@ -23,23 +24,23 @@ public:
         y = y * s;
         z = z * s;
     }
-    float dotProduct(const Vec3 &other) const{
+    const float dotProduct(const Vec3 &other) const {
         return other.x*x + other.y*y + other.z*z;
     }
 
-    Vec3 operator +(const Vec3 &other) const {
+    Vec3 operator+ (const Vec3 &other) const {
         return Vec3(this->x + other.x, this->y + other.y, this->z + other.z);
     }
-    Vec3 operator -(const Vec3 &other) const {
+    Vec3 operator- (const Vec3 &other) const {
         return Vec3(this->x - other.x, this->y - other.y, this->z - other.z);
     }
-    Vec3 operator *(float scale) const {
+    Vec3 operator* (float scale) const {
         return Vec3(this->x * scale, this->y * scale, this->z * scale);
     }
-    Vec3 operator -() const {
+    Vec3 operator- () const {
         return Vec3(-this->x, -this->y, -this->z);
     }
-    friend Vec3 operator *(float scale, const Vec3 &other) {
+    friend Vec3 operator* (float scale, const Vec3 &other) {
         return Vec3(other.x * scale, other.y * scale, other.z * scale);
     }
     Vec3 copy() const {
@@ -55,16 +56,16 @@ public:
     Ray() : pos(Vec3()), dir(Vec3()) {}
     Ray(Vec3 pos, Vec3 dir) : pos(pos), dir(dir) {}
 
-    Vec3 getPos() const{
+    const Vec3 getPos() const{
         return pos;
     }
-    Vec3 getDir() const{
+    const Vec3 getDir() const{
         return dir;
     }
-    void setPos(Vec3 pos) {
+    void setPos(const Vec3 pos) {
         this->pos = pos;
     }
-    void setPos(Vec3 dir) {
+    void setDir(const Vec3 dir) {
         this->dir = dir;
     }
 };
@@ -76,10 +77,12 @@ private:
 public:
     Material(Vec3 color, float roughness) : color(color), roughness(roughness) {}
 
+    Material() : color(Vec3()), roughness(0) {}
+
     float getRoughness() {
         return roughness;
     }
-    Vec3 &getColor() {
+    const Vec3 &getColor() const{
         return color;
     }
 };
@@ -92,17 +95,19 @@ private:
 public:
     Ball(Vec3 pos, Material material, float radius) :
         pos(pos), material(material), radius(radius) {}
+
+    Ball() : pos(Vec3()), material(Material()), radius(0) {}
     
-    Vec3 &getPos() {
+    const Vec3 &getPos() const{
         return pos;
     }
-    float getRadius() {
+    const float getRadius() const{
         return radius;
     }
-    Material &getMaterial(){
+    const Material &getMaterial() const{
         return material;
     }
-    bool intersect(const Ray &in, float &distance) {
+    const bool intersect(const Ray &in, float &distance) const {
         Vec3 L = in.getPos() - pos;
         Vec3 dir = in.getDir().copy();
         dir.normalize();
@@ -122,12 +127,12 @@ public:
         distance = t;
         return true;
     }
-    Vec3 getNormal(const Vec3 &point) {
+    const Vec3 getNormal(const Vec3 &point) const{
         Vec3 normal = point - pos;
         normal.normalize();
         return normal;
     }
-    Vec3 getMirrored(const Vec3 &dir, const Vec3 &point) {
+    const Vec3 getMirrored(const Vec3 &dir, const Vec3 &point) const {
         Vec3 in = (-1)*(dir.copy());
         in.normalize();
         Vec3 normal = this->getNormal(point);
@@ -177,10 +182,10 @@ public:
     const Vec3 &getPos() const{
         return pos;
     }
-    Vec3 &getDir() {
+    const Vec3 &getDir() const {
         return dir;
     }
-    float getFov() {
+    const float getFov() const {
         return fov;
     }
     void move(Vec3 amount) {
@@ -234,11 +239,11 @@ public:
         for(Light &light : lights) {
             light.rotate();
         }
-        this->camera.move(Vec3(0.0f, 0.0f, 0.05f));
+        //this->camera.move(Vec3(0.0f, 0.0f, 0.05f));
     }
 };
 
-Scene setupScene(int ballsmax) {
+const Scene setupScene(const int ballsmax) {
     float fov = 45.0f;
     Camera camera = Camera(Vec3(0.0f, 0.0f, -2.0f),Vec3(1.0f, 0.0f, 0.0f),fov);
     Scene scene = Scene(camera);
@@ -289,15 +294,6 @@ Scene setupScene(int ballsmax) {
     float brightness = 1.0f;
     Light light = Light(pos, color, brightness);
     scene.addLight(light);
-
-    /*
-    // Light 2
-    pos = Vec3(30.0f, 170.0f, -180.0f);
-    color = Vec3(1.0f);
-    brightness = 1.0f;
-    light = Light(pos, color, brightness);
-    scene.addLight(light);
-    */
 
     return scene;
 }
@@ -410,8 +406,8 @@ Vec3 computeBackground(const Ray &ray, const Scene &scene) {
     dir.normalize();
     float dot = 0.0f;
     
-    std::vector<Light> lights = scene.getLights();
-    for(Light &light : lights) {
+    const auto& lights = scene.getLights();
+    for(const auto& light : lights) {
         Vec3 light_dir = ray.getPos() - light.getPos();
         light_dir.normalize();
         float dot_product = light_dir.dotProduct(-dir);
@@ -428,17 +424,17 @@ Vec3 computeBackground(const Ray &ray, const Scene &scene) {
     
 }
 
-bool checkShadow(const Scene &scene, const Light &light, const Vec3 &pos, Ball* ball){
+bool checkShadow(const Scene &scene, const Light &light, const Vec3 &pos, Ball ball){
     //Look for a shadow made by other balls
-    std::vector<Ball> balls = scene.getBalls();
-    for(Ball &b : balls){
+    const auto& balls = scene.getBalls();
+    for(const auto& b: balls){
         float distance;
         Vec3 dir = light.getPos() - pos;
 
         
         //Optimization Huom: ota huomioon säteen lähtöpiste!
         float radius = b.getRadius();
-        Vec3 center = ball->getPos();
+        Vec3 center = ball.getPos();
         Vec3 cent = b.getPos();
         //Decrease amount of the balls by checking the coordinates
         if(dir.y > 0 && (cent.y + radius - center.y < 0)) 
@@ -465,17 +461,17 @@ bool checkShadow(const Scene &scene, const Light &light, const Vec3 &pos, Ball* 
 }
 
 
-void computeBrightness(const Ray &ray, const Scene &scene, const Ray &normal_ray, Ball* ball, float &specular, float& diffuce) {
+void computeBrightness(const Ray &ray, const Scene &scene, const Ray &normal_ray, Ball ball, float &specular, float& diffuce) {
     Vec3 normal     = normal_ray.getDir();
     Vec3 pos        = normal_ray.getPos();
     Vec3 dir        = ray.getDir();
-    Vec3 mirrored   = ball->getMirrored(dir, pos);
+    Vec3 mirrored   = ball.getMirrored(dir, pos);
     
     diffuce = 0.0f;
     specular = 0.0f;
     
-    std::vector<Light> lights = scene.getLights();
-    for(Light &light : lights) {
+    const auto& lights = scene.getLights();
+    for(const auto& light : lights) {
         // Shadow
         if(checkShadow(scene, light, pos, ball)) continue;
 
@@ -489,42 +485,42 @@ void computeBrightness(const Ray &ray, const Scene &scene, const Ray &normal_ray
     }
 }
 
-Vec3 trace(const Ray &ray, const Scene &scene, int bounces) {
-    Ball* ball = NULL;
+const Vec3 trace(const Ray &ray, const Scene &scene, int bounces) {
+    Ball ball;
     Ray normal_ray;
 
     // Find closest intersecting ball
     float closest_distance = -1;
-    std::vector<Ball> balls = scene.getBalls();
-    for(Ball& b : balls) {
+    const auto& balls = scene.getBalls();
+    for(const auto& b : balls) {
         float distance;
         if(b.intersect(ray, distance)) {
-            if(distance < closest_distance || ball == NULL) {
+            if(distance < closest_distance || closest_distance < 0) {
                 closest_distance = distance;
-                ball = &b;
+                ball = b;
                 Vec3 point = distance*(ray.getDir()) + ray.getPos();
-                normal_ray = Ray(point, ball->getNormal(point));
+                normal_ray = Ray(point, ball.getNormal(point));
             }
         }
     }
 
     // No ball was found -> Draw background
-    if(ball == NULL) {
+    if(closest_distance < 0) {
         return computeBackground(ray, scene);
     }
 
     float specular, diffuce;
     computeBrightness(ray, scene, normal_ray, ball, specular, diffuce);
     // Draw color of the point
-    Vec3 ball_color = 0.25f*(ball->getMaterial().getColor());
+    const Vec3 ball_color = 0.25f*(ball.getMaterial().getColor());
 
     // Phong illumination model
     Vec3 pixel = ball_color + ball_color*fmax(diffuce,0.0f) + ball_color*fmax(powf(specular,15), 0.0f);
 
     if(bounces < 10) {
         bounces++;
-        Ray new_ray = Ray(normal_ray.getPos(), (ball->getMirrored(ray.getDir(), normal_ray.getPos())));
-        pixel = 0.1f*pixel + 0.9f*trace(new_ray, scene, bounces);
+        Ray new_ray = Ray(normal_ray.getPos(), (ball.getMirrored(ray.getDir(), normal_ray.getPos())));
+        pixel = 0.3f*pixel + 0.6f*trace(new_ray, scene, bounces);
     }
     return pixel;
 }
@@ -534,8 +530,8 @@ unsigned __int64 getTime() {
 }
 
 int main(int argc, char* argv[]) {
-    int width = 640;
-    int height = 480;
+    int width = 1280;
+    int height = 720;
 
     // Give seed for the randomizer
     if(argc > 1)
@@ -560,9 +556,11 @@ int main(int argc, char* argv[]) {
     while(!display->closeRequested()) {
         display->pollEvents();
         Vec3 camera_pos = scene.getCamera().getPos();
+        
+#pragma omp parallel for schedule(guided)
         for(int x = 0; x < width; x++) {
             for(int y = 0; y < height; y++) {
-                Ray ray = rays[y*width + x];//).getDir(), scene.getCamera().getPos());
+                Ray ray = rays[y*width + x];
                 Vec3 c = trace(ray, scene, 0);
                 uint32_t color = (uint8_t)(c.x*255.0f) << 16 | (uint8_t)(c.y*255.0f) << 8 | (uint8_t)(c.z*255.0f);
                 display->setPixel(x, y, color);
@@ -570,8 +568,8 @@ int main(int argc, char* argv[]) {
         }
         display->update();
         rays.clear();
-        moveRays(rays, scene.getCamera());
-        //rotateRayDirections(ray_dirs, -0.01f);            x    
+        //moveRays(rays, scene.getCamera());
+        //rotateRayDirections(ray_dirs, -0.01f);
         scene.update();
 
         // Fps count
