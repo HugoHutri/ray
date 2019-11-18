@@ -64,7 +64,7 @@ public:
     void setPos(Vec3 pos) {
         this->pos = pos;
     }
-    void setPos(Vec3 dir) {
+    void setDir(Vec3 dir) {
         this->dir = dir;
     }
 };
