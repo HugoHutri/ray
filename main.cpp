@@ -432,7 +432,7 @@ bool checkShadow(const Scene &scene, const Light &light, const Vec3 &pos, Ball b
         Vec3 dir = light.getPos() - pos;
 
         
-        //Optimization Huom: ota huomioon säteen lähtöpiste!
+        /* //Optimization Huom: ota huomioon säteen lähtöpiste!
         float radius = b.getRadius();
         Vec3 center = ball.getPos();
         Vec3 cent = b.getPos();
@@ -450,7 +450,7 @@ bool checkShadow(const Scene &scene, const Light &light, const Vec3 &pos, Ball b
         if(dir.z < 0 && (cent.z - radius - center.z > 0)) 
             continue;
         //Optimization ends 
-        
+        */
 
         //A ray from the ball to the light
         if(b.intersect(Ray(pos, dir), distance)) {
