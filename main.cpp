@@ -541,11 +541,11 @@ int main(int argc, char* argv[]) {
 
     // Create display
     AE_Display* display = new AE_Display();
-    if(!display->createWindow("Kujomasennus",width,height))
+    if(!display->createWindow("Raytracer",width,height))
         return -1;
 
     Scene scene = setupScene(10);
-    std::vector<Ray> rays;// = computeRays(width, height, scene.getCamera());
+    std::vector<Ray> rays;
 
     // Fps count
     unsigned __int64 time_prev = getTime();
